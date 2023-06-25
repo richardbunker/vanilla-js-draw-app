@@ -1,246 +1,239 @@
-import { mouseDown, mouseMove, mouseUpOut, wheel } from "./listeners/Mouse";
-import { touchDone, touchMove, touchStart } from "./listeners/Touch";
-import { redraw, throttleSave, undoLast } from "./Strokes";
-import {
-    eraserOff,
-    eraserOn,
-    hidePenMenu,
-    setColour,
-    togglePenMenu,
-} from "./ToolBar";
+import { mouseDown, mouseMove, mouseUpOut, wheel } from "./listeners/Mouse.js";
+import { touchDone, touchMove, touchStart } from "./listeners/Touch.js";
+import { redraw, throttleSave, undoLast } from "./Strokes.js";
+import { eraserOff, eraserOn, hidePenMenu, setColour, togglePenMenu } from "./ToolBar.js";
 
 document.oncontextmenu = function () {
-    return false;
+  return false;
 };
-
 export default class Sketch {
-    constructor(canvas, config) {
-        this.canvas = canvas;
-        this.context = canvas.getContext("2d");
-        this.config = initConfig(config);
-        this.toolBar = initToolBar(this.canvas, this.context, config);
-        const props = {
-            canvas: this.canvas,
-            context: this.context,
-            state: this.config.state,
-            toolBar: this.toolBar,
-        };
-        initListeners(props);
-        redraw(props);
-    }
+  constructor(canvas, config) {
+    this.canvas = canvas;
+    this.context = canvas.getContext("2d");
+    this.config = initConfig(config);
+    this.toolBar = initToolBar(this.canvas, this.context, config);
+    const props = {
+      canvas: this.canvas,
+      context: this.context,
+      state: this.config.state,
+      toolBar: this.toolBar,
+    };
+    initListeners(props);
+    redraw(props);
+  }
 }
 const initConfig = (config) => {
-    config = config || {};
-    config.readOnly = config.readOnly || false;
-    const strokes = initStrokes(config.strokes);
-    config.state = initState(config);
-    return config;
+  config = config || {};
+  config.readOnly = config.readOnly || false;
+  const strokes = initStrokes(config.strokes);
+  config.state = initState(config);
+  return config;
 };
 const initStrokes = (strokes) => {
-    strokes = strokes || [];
-    return strokes;
+  strokes = strokes || [];
+  return strokes;
 };
 const initState = (config) => {
-    const defaults = config.defaults || {};
-    const state = {
-        strokeHistory: config.strokes,
-        actionHistory: [],
-        currentStroke: [],
-        cursorX: null,
-        cursorY: null,
-        cursorXprev: null,
-        cursorYprev: null,
-        lastTouches: [null, null],
-        offsetX: 0,
-        offsetY: 0,
-        scale: 1,
-        eraseScale: 5,
-        drawing: false,
-        panning: false,
-        rightMouseDown: false,
-        erasing: false,
-        penColour: defaults.penColour ? defaults.penColour : "#393939",
-        lineWidth: defaults.lineWidth ? defaults.lineWidth : 2,
-        prevPenState: {
-            lineWidth: "",
-            penColour: "",
-        },
-    };
-    return state;
+  const defaults = config.defaults || {};
+  const state = {
+    strokeHistory: config.strokes,
+    actionHistory: [],
+    currentStroke: [],
+    cursorX: null,
+    cursorY: null,
+    cursorXprev: null,
+    cursorYprev: null,
+    lastTouches: [null, null],
+    offsetX: 0,
+    offsetY: 0,
+    scale: 1,
+    eraseScale: 5,
+    drawing: false,
+    panning: false,
+    rightMouseDown: false,
+    erasing: false,
+    penColour: defaults.penColour ? defaults.penColour : "#393939",
+    lineWidth: defaults.lineWidth ? defaults.lineWidth : 2,
+    prevPenState: {
+      lineWidth: "",
+      penColour: "",
+    },
+  };
+  return state;
 };
 const initToolBar = (canvas, context, config) => {
-    const sketch_menu = document.createElement("div");
-    const sketch_style_head_tag = document.createElement("style");
-    document.head.append(appendStyleTagToHead(sketch_style_head_tag));
+  const sketch_menu = document.createElement("div");
+  const sketch_style_head_tag = document.createElement("style");
+  document.head.append(appendStyleTagToHead(sketch_style_head_tag));
 
-    document.body.insertBefore(sketch_menu, canvas.nextSibling);
-    appendMenu(sketch_menu);
-    const toolBar = {};
-    toolBar.state = {
-        penMenuDisplayed: false,
-    };
-    toolBar.elements = {
-        undoIcon: document.querySelector("#undoIcon"),
-        penIcon: document.querySelector("#penIcon"),
-        eraserIcon: document.querySelector("#eraserIcon"),
-        penMenu: document.querySelector("#pen-menu"),
-        colourBlack: document.querySelector("#colour-black"),
-        colourWhite: document.querySelector("#colour-white"),
-        colourRed: document.querySelector("#colour-red"),
-        colourOrange: document.querySelector("#colour-orange"),
-        colourYellow: document.querySelector("#colour-yellow"),
-        colourGreen: document.querySelector("#colour-green"),
-        colourBlue: document.querySelector("#colour-blue"),
-        colourPurple: document.querySelector("#colour-purple"),
-        colourPink: document.querySelector("#colour-pink"),
-        pens: document.querySelector("#pens"),
-        pen1: document.querySelector("#pen-1"),
-        pen2: document.querySelector("#pen-2"),
-        pen3: document.querySelector("#pen-3"),
-        pen4: document.querySelector("#pen-4"),
-        pen5: document.querySelector("#pen-5"),
-        pen1Colour: document.querySelector("#pen-1-colour"),
-        pen2Colour: document.querySelector("#pen-2-colour"),
-        pen3Colour: document.querySelector("#pen-3-colour"),
-        pen4Colour: document.querySelector("#pen-4-colour"),
-        pen5Colour: document.querySelector("#pen-5-colour"),
-        savingText: document.querySelector("#savingText"),
-        saveIcon: document.querySelector("#save"),
-    };
-    toolBar.clickHandlers = {
-        undoIcon: (toolBar.elements.undoIcon.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            undoLast({ canvas, context, state: config.state, toolBar });
-        }),
-        penIcon: (toolBar.elements.penIcon.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-        }),
-        eraserIcon: (toolBar.elements.eraserIcon.onclick = function () {
-            config.state.erasing
-                ? eraserOff(toolBar.elements.eraserIcon, config.state)
-                : eraserOn(toolBar.elements.eraserIcon, config.state);
-            hidePenMenu(toolBar);
-        }),
-        colourBlack: (toolBar.elements.colourBlack.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#393939");
-        }),
-        colourWhite: (toolBar.elements.colourWhite.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#fff");
-        }),
-        colourRed: (toolBar.elements.colourRed.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#dc3545");
-        }),
-        colourOrange: (toolBar.elements.colourOrange.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#fd7e14");
-        }),
-        colourYellow: (toolBar.elements.colourYellow.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#ffc107");
-        }),
-        colourGreen: (toolBar.elements.colourGreen.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#28a745");
-        }),
-        colourBlue: (toolBar.elements.colourBlue.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#007bff");
-        }),
-        colourPurple: (toolBar.elements.colourPurple.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#6610f2");
-        }),
-        colourPink: (toolBar.elements.colourPink.onclick = () => {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            setColour(toolBar, config.state, "#dd00ff");
-        }),
-        pen1: (toolBar.elements.pen1.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            config.state.lineWidth = 2;
-        }),
-        pen2: (toolBar.elements.pen2.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            config.state.lineWidth = 3;
-        }),
-        pen3: (toolBar.elements.pen3.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            config.state.lineWidth = 6;
-        }),
-        pen4: (toolBar.elements.pen4.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            config.state.lineWidth = 10;
-        }),
-        pen5: (toolBar.elements.pen5.onclick = function () {
-            if (config.state.erasing) {
-                eraserOff(toolBar.elements.eraserIcon, config.state);
-            }
-            togglePenMenu(toolBar);
-            config.state.lineWidth = 25;
-        }),
-        saveIcon: (toolBar.elements.saveIcon.onclick = function () {
-            throttleSave(config.state.strokeHistory);
-        }),
-    };
-    return toolBar;
+  document.body.insertBefore(sketch_menu, canvas.nextSibling);
+  appendMenu(sketch_menu);
+  const toolBar = {};
+  toolBar.state = {
+    penMenuDisplayed: false,
+  };
+  toolBar.elements = {
+    undoIcon: document.querySelector("#undoIcon"),
+    penIcon: document.querySelector("#penIcon"),
+    eraserIcon: document.querySelector("#eraserIcon"),
+    penMenu: document.querySelector("#pen-menu"),
+    colourBlack: document.querySelector("#colour-black"),
+    colourWhite: document.querySelector("#colour-white"),
+    colourRed: document.querySelector("#colour-red"),
+    colourOrange: document.querySelector("#colour-orange"),
+    colourYellow: document.querySelector("#colour-yellow"),
+    colourGreen: document.querySelector("#colour-green"),
+    colourBlue: document.querySelector("#colour-blue"),
+    colourPurple: document.querySelector("#colour-purple"),
+    colourPink: document.querySelector("#colour-pink"),
+    pens: document.querySelector("#pens"),
+    pen1: document.querySelector("#pen-1"),
+    pen2: document.querySelector("#pen-2"),
+    pen3: document.querySelector("#pen-3"),
+    pen4: document.querySelector("#pen-4"),
+    pen5: document.querySelector("#pen-5"),
+    pen1Colour: document.querySelector("#pen-1-colour"),
+    pen2Colour: document.querySelector("#pen-2-colour"),
+    pen3Colour: document.querySelector("#pen-3-colour"),
+    pen4Colour: document.querySelector("#pen-4-colour"),
+    pen5Colour: document.querySelector("#pen-5-colour"),
+    savingText: document.querySelector("#savingText"),
+    saveIcon: document.querySelector("#save"),
+  };
+  toolBar.clickHandlers = {
+    undoIcon: (toolBar.elements.undoIcon.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      undoLast({ canvas, context, state: config.state, toolBar });
+    }),
+    penIcon: (toolBar.elements.penIcon.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+    }),
+    eraserIcon: (toolBar.elements.eraserIcon.onclick = function () {
+      config.state.erasing
+        ? eraserOff(toolBar.elements.eraserIcon, config.state)
+        : eraserOn(toolBar.elements.eraserIcon, config.state);
+      hidePenMenu(toolBar);
+    }),
+    colourBlack: (toolBar.elements.colourBlack.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#393939");
+    }),
+    colourWhite: (toolBar.elements.colourWhite.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#fff");
+    }),
+    colourRed: (toolBar.elements.colourRed.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#dc3545");
+    }),
+    colourOrange: (toolBar.elements.colourOrange.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#fd7e14");
+    }),
+    colourYellow: (toolBar.elements.colourYellow.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#ffc107");
+    }),
+    colourGreen: (toolBar.elements.colourGreen.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#28a745");
+    }),
+    colourBlue: (toolBar.elements.colourBlue.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#007bff");
+    }),
+    colourPurple: (toolBar.elements.colourPurple.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#6610f2");
+    }),
+    colourPink: (toolBar.elements.colourPink.onclick = () => {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      setColour(toolBar, config.state, "#dd00ff");
+    }),
+    pen1: (toolBar.elements.pen1.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      config.state.lineWidth = 2;
+    }),
+    pen2: (toolBar.elements.pen2.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      config.state.lineWidth = 3;
+    }),
+    pen3: (toolBar.elements.pen3.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      config.state.lineWidth = 6;
+    }),
+    pen4: (toolBar.elements.pen4.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      config.state.lineWidth = 10;
+    }),
+    pen5: (toolBar.elements.pen5.onclick = function () {
+      if (config.state.erasing) {
+        eraserOff(toolBar.elements.eraserIcon, config.state);
+      }
+      togglePenMenu(toolBar);
+      config.state.lineWidth = 25;
+    }),
+    saveIcon: (toolBar.elements.saveIcon.onclick = function () {
+      throttleSave(config.state.strokeHistory);
+    }),
+  };
+  return toolBar;
 };
 const initListeners = (props) => {
-    wheel(props);
-    mouseDown(props);
-    mouseMove(props);
-    mouseUpOut(props);
-    touchStart(props);
-    touchMove(props);
-    touchDone(props);
+  wheel(props);
+  mouseDown(props);
+  mouseMove(props);
+  mouseUpOut(props);
+  touchStart(props);
+  touchMove(props);
+  touchDone(props);
 };
 const appendStyleTagToHead = (el) => {
-    el.innerHTML = `body, html
+  el.innerHTML = `body, html
         {
         margin: 0;
         height: 100%;
@@ -254,10 +247,10 @@ const appendStyleTagToHead = (el) => {
         -ms-user-select: none;
         user-select: none;
         }`;
-    return el;
+  return el;
 };
 const appendMenu = (el) => {
-    el.innerHTML = `<div class="absolute bg-blue-900 flex items-center justify-between left-0 py-2 top-0 w-full" role="toolbar">
+  el.innerHTML = `<div class="absolute bg-blue-900 flex items-center justify-between left-0 py-2 top-0 w-full" role="toolbar">
         <a href="/" id="back" class="py-1 px-3 uppercase rounded text-xl text-white">
           <svg class="w-6 h-6 text-white fill-current" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd"><path d="M16.67 0l2.83 2.829-9.339 9.175 9.339 9.167-2.83 2.829-12.17-11.996z"/></svg>
         </a>
@@ -312,3 +305,17 @@ const appendMenu = (el) => {
       </div>
     </div>`;
 };
+
+if (!localStorage.getItem("strokes")) {
+  localStorage.setItem("strokes", JSON.stringify([]));
+}
+const canvas = document.getElementById("sketch");
+const strokes = localStorage.getItem("strokes");
+const mySketch = new Sketch(canvas, {
+  strokes: JSON.parse(strokes),
+  readOnly: false,
+  defaults: {
+    penColour: "#393939",
+    lineWidth: 2,
+  },
+});

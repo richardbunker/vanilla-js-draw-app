@@ -1,0 +1,25 @@
+{
+  "name": "vanilla-js-draw-app",
+  "version": "1.0.0",
+  "description": "A drawing app using HTML5 canvas built using vanilla javascript.",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richardbunker/vanilla-js-draw-app.git"
+  },
+  "author": "Richard Bunker",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/richardbunker/vanilla-js-draw-app/issues"
+  },
+  "homepage": "https://github.com/richardbunker/vanilla-js-draw-app#readme",
+  "dependencies": {
+    "express": "^4.18.2",
+    "lodash": "^4.17.21",
+    "nodemon": "^2.0.22"
+  }
+}
